@@ -13,7 +13,11 @@ ApplicationWindow {
     // border.width: 1
 
     property var comPorts: []
+    property var connected_port: false
     property var debug_app:true
+    property var is_running: false
+    property var enable_button: true
+    property var disabe_button: false
     property string selectedPort: ""
 
     // Left side for information display
@@ -167,6 +171,7 @@ ApplicationWindow {
                     text:""
                     color:"black"
                     wrapMode: TextEdit.Wrap
+                    selectByMouse: true
 
                 }
             }
@@ -208,7 +213,11 @@ ApplicationWindow {
                     onReleased: button_send_command.scale = 1.0
 
                     onClicked: {
-                        serial_communication.sendData(inputField.text)
+                        if(connected_port) {
+                            serial_communication.sendData(inputField.text)
+                        } else {
+                            notifi_connectPort.open()
+                        }
                     }
                 }
             }
@@ -226,7 +235,7 @@ ApplicationWindow {
         Rectangle {
             id: comSelect
             width: 280
-            height: 100
+            height: 200
             radius: 8
             color: "#F6F3F3"
             anchors.top: parent.top
@@ -297,10 +306,17 @@ ApplicationWindow {
                         // Perform connect logic here
                     }
                     onClicked: {
-                        if (selectedPort !== "") {
+                        if ((selectedPort !== "") && (connected_port == false)) {
                             // Call Python function to connect to the COM port
                             connectToComPort(selectedPort)
-                        } else {
+                            connected_port = true
+                            connect_button.text = "Disconnect"
+                        } else if (connected_port == true) {
+                            disconnectToComPort(selectedPort)
+                            connect_button.text = "Connect"
+                            connected_port = false
+                        }
+                        else {
                             console.log("No COM port selected")
                         }
                     }
@@ -326,6 +342,8 @@ ApplicationWindow {
                 text: ""
                 font.pixelSize: 14
                 color: "black"
+                width: 100
+                wrapMode: Text.Wrap
                 anchors.left: file_label.right
                 anchors.top: text_COM.top
                 anchors.topMargin: 35
@@ -335,7 +353,7 @@ ApplicationWindow {
             // Open Button
             Button {
                 width: 90
-                height: 30
+                height: 40
 
                 background: Rectangle {
                     radius: 8
@@ -358,7 +376,7 @@ ApplicationWindow {
         Rectangle {
             id: control_side
             width: 280
-            height: 100
+            height: 200
             radius: 8
             color: "#D9D9D9"
             anchors.top: comSelect.bottom
@@ -369,9 +387,9 @@ ApplicationWindow {
             // Start Button
             Button {
                 id: buttonStart
-                width: 70
-                height: 30
-                flat: true
+                width: 100
+                height: 40
+                // flat: true
 
                 background: Rectangle {
                     radius: 8
@@ -385,13 +403,43 @@ ApplicationWindow {
                 text: "Start"
                 font.pixelSize: 14
                 font.bold:true
+
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: {
+                        buttonStart.background.color = "#CCCCCC"  // Change color when pressed
+                        // console.log("Button pressed")
+                    }
+                    onReleased: {
+                        buttonStart.background.color = "white"  // Revert color when released
+                        // console.log("Button released")
+                        // Perform start logic here
+                    }
+                    onClicked: {
+                        if ((connected_port == true) && (is_running == false)) {
+                            is_running = true
+                            buttonStart.text = "Stop"
+                            buttonStart.background.color = "red"
+                            enabledOrDisabledButtons(disabe_button)
+                        } else {
+                            if( connected_port == false) {
+                                notifi_connectPort.open()
+                            }
+                            is_running = false
+                            buttonStart.text = "Start"
+                            buttonStart.background.color = "white"
+                            enabledOrDisabledButtons(enable_button)
+                        }
+                    }
+                }
+
             }
 
             // Go to Root Button
             Button {
                 id: buttonGotoRoot
-                width: 70
-                height: 30
+                width: 100
+                height: 40
 
                 background: Rectangle {
                     radius: 8
@@ -406,11 +454,22 @@ ApplicationWindow {
                 font.pixelSize: 14
             }
 
+            Text {
+                id: text_speed_label
+                text: "Speed Run"
+                font.pixelSize: 14
+                color: "black"
+                anchors.left: parent.left
+                anchors.top: buttonStart.bottom
+                anchors.topMargin: 10
+                anchors.leftMargin: 20
+            }
+
             // Speed Select Box
             ComboBox {
                 id: speed_selectBox
-                width: 90
-                height: 30
+                width: 100
+                height: 40
                 model: ["1x", "2x", "3x"]
 
                 background: Rectangle {
@@ -418,38 +477,39 @@ ApplicationWindow {
                     color: "white"
                 }
                 anchors.left: parent.left
-                anchors.top: buttonStart.bottom
-                anchors.topMargin: 15
+                anchors.top: text_speed_label.bottom
+                anchors.topMargin: 10
                 anchors.leftMargin: 10
             }
 
-            // Go to Root Button
+            // Go to Setspeed Button
             Button {
                 id: button_setspeed
-                width: 70
-                height: 30
+                width: 100
+                height: 40
 
                 background: Rectangle {
                     radius: 8
                     color: "white"
                 }
                 anchors.left: speed_selectBox.right
-                anchors.top: buttonGotoRoot.bottom
-                anchors.leftMargin: 20
-                anchors.topMargin: 15
+                anchors.top: text_speed_label.bottom
+                anchors.leftMargin: 40
+                anchors.topMargin: 10
 
-                text: "Set"
+                text: "Set Speed"
                 font.pixelSize: 14
             }
         }
 
         // Grid layout at the bottom
         Rectangle {
+            id: control_direction
             width: 300
             height: 300
             // anchors.left: parent.left
             anchors.top: control_side.bottom
-            anchors.topMargin: 100
+            anchors.topMargin: 50
 
             GridLayout {
                 id: gridLayout
@@ -493,6 +553,52 @@ ApplicationWindow {
                 }
             }
         }
+
+    }
+
+    Popup {
+        id: notifi_connectPort
+        width: 300
+        height: 200
+        x: parent.width / 2 - width / 2
+        y: parent.height / 2 - height / 2
+
+        Rectangle {
+            width: parent.width
+            height: parent.height
+
+            Rectangle {
+                width: 25
+                height: 25
+                color: "red"
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: 0
+                anchors.rightMargin: 0
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "X"
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 16
+                    color: "white"
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: {
+                        notifi_connectPort.close()
+                    }
+                }
+            }
+        
+            Text {
+                anchors.centerIn: parent
+                text: "Please connect port."
+                wrapMode: Text.WordWrap
+                font.pixelSize: 16
+                color: "black"
+            }
+        }
     }
 
     Component.onCompleted: {
@@ -534,6 +640,17 @@ ApplicationWindow {
         serial_communication.connectComPort(portName);
     }
     
+    function disconnectToComPort(portName){
+        serial_communication.disconnectComPort(portName);
+    }
+
+    function enabledOrDisabledButtons(enable){
+        buttonGotoRoot.enabled = enable
+        button_setspeed.enabled = enable
+        button_send_command.enabled = enable
+        control_direction.enabled = enable
+    }
+
     /*!
         \qmltype Connections
         \inqmlmodule QtQuick 2.15
@@ -546,15 +663,15 @@ ApplicationWindow {
     */
     Connections {
         target: serial_communication
-        onMessageReceived: {
-            consoleText.text = message
+        function  onMessageReceived(message) {
+            consoleText.text += "\n" + message
         }
     }
 
     FileDialog {
         id: fileDialog
         title: "Select a File"
-        folder: shortcuts.home  // Start folder
+        folder: shortcuts.home 
         onAccepted: {
             console.log("Selected file:", fileDialog.fileUrl)
             var fileUrl = fileDialog.fileUrl.toString()

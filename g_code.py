@@ -1,6 +1,8 @@
 import sys
 import os
-from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal
+import threading
+import time
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQuick import QQuickView
 from PyQt5.QtGui import QGuiApplication
@@ -11,6 +13,10 @@ import serial.tools.list_ports
 class SerialHandler(QObject):
     messageReceived = pyqtSignal(str, arguments=['message'])
     def __init__(self):
+        super().__init__()
+        self.serial = None
+        self.read_thread = None
+        self.running = False
         QObject.__init__(self)
 
     @pyqtSlot(result=list)
@@ -25,31 +31,45 @@ class SerialHandler(QObject):
         print(f"Connecting to {port_name}")
         try:
             # default baud rate is 115200, but you can change it as needed
-            self._serial = serial.Serial(port_name, 115200)
+            self.serial = serial.Serial(port_name, 115200)
             print(f"Connected to {port_name}")
+            self.running = True
+            self.read_thread = threading.Thread(target=self.receiveData)
+            self.read_thread.daemon = True
+            self.read_thread.start()
         except Exception as e:
             print(f"Error: {e}")
-    
+    @pyqtSlot(str)
+    def disconnectComPort(self):
+        print("Disconnecting from serial port...")
+        try:
+            self.running = False
+            self.serial.close()
+            self.read_thread.join()
+            print("Disconnected from serial port")
+        except Exception as e:
+            print(f"Error disconnecting: {e}")
+
     @pyqtSlot(str, result=str)
     def sendData(self, data):
         print(f"Sending data: {data}")
         try:
-            self._serial.write(data.encode())
+            self.serial.write(data.encode())
             print(f"Data sent successfully")
         except Exception as e:
             print(f"Error sending data: {e}")
-
-    @pyqtSlot(result=str)
+    
+    @pyqtSlot()
     def receiveData(self):
         print("Receiving data...")
-        try:
-            while self._serial.is_open():
-                if self._serial.in_waiting > 0:
-                    data = self._serial.readline().decode().strip()
-                    print(f"Received data: {data}")
-                    self.messageReceived.emit(data)
-        except Exception as e:
-            print(f"Error receiving data: {e}")
+        print ("Serial port connected: ", self.serial.is_open, " Running: ", self.running)
+        while self.running and self.serial.is_open: 
+            if self.serial.in_waiting > 0:
+                message = self.serial.readline().decode('utf-8').strip()
+                print(f"Received data: {message}")
+                self.messageReceived.emit(message)
+            time.sleep(0.5)  # Added delay to avoid excessive CPU usage
+        print("No serial port connected")
 
 # Define a class to handle the file loading functionality
 class FileLoader(QObject):
