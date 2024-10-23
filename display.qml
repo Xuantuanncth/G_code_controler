@@ -12,6 +12,10 @@ ApplicationWindow {
     // border.color: "black"
     // border.width: 1
 
+    property var comPorts: []
+    property var debug_app:true
+    property string selectedPort: ""
+
     // Left side for information display
     Rectangle {
         id: leftParent
@@ -55,6 +59,17 @@ ApplicationWindow {
                 anchors.right: parent.right
                 anchors.topMargin: 40
                 anchors.rightMargin: 40
+                MouseArea{
+                    anchors.fill: parent
+                    onPressed: {
+                        parent.scale = 1.2
+                        parent.color = "blue"
+                    }
+                    onExited: {
+                        parent.scale = 1
+                        parent.color = "black"
+                    }
+                }
             }
 
             // Drawing Area
@@ -106,6 +121,17 @@ ApplicationWindow {
                 anchors.left: parent.left
                 anchors.topMargin: 35
                 anchors.leftMargin: 10
+
+                Text {
+                    id: consoleText
+                    text: ""
+                    font.pixelSize: 14
+                    color: "black"
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.topMargin: 10
+                    anchors.leftMargin: 10
+                }
             }
 
             // Command Label
@@ -133,7 +159,7 @@ ApplicationWindow {
                 anchors.leftMargin: 10
 
                 TextEdit {
-                    id: textEdit
+                    id: inputField
                     width: parent.width - 20
                     height: parent.height -20
                     anchors.centerIn:parent
@@ -147,7 +173,7 @@ ApplicationWindow {
 
             // Send Button
             Rectangle {
-                id:button_send
+                id:button_send_command
                 width: 150
                 height: 50
                 anchors.top: command.bottom
@@ -173,13 +199,17 @@ ApplicationWindow {
                     id: hoverArea
                     anchors.fill: parent
                     onEntered: {
-                        button_send.color = "#888888"  // Change button color on hover
+                        button_send_command.color = "#888888"  // Change button color on hover
                     }
                     onExited: {
-                        button_send.color = "white"  // Revert button color when mouse leaves
+                        button_send_command.color = "white"  // Revert button color when mouse leaves
                     }
-                    onPressed: button_send.scale = 0.95
-                    onReleased: button_send.scale = 1.0
+                    onPressed: button_send_command.scale = 0.95
+                    onReleased: button_send_command.scale = 1.0
+
+                    onClicked: {
+                        serial_communication.sendData(inputField.text)
+                    }
                 }
             }
         }
@@ -217,10 +247,10 @@ ApplicationWindow {
 
             // COM Select Box
             ComboBox {
-                id: selectBox
+                id: portSelector
                 width: 102
                 height: 30
-                model: ["COM1", "COM2", "COM3", "COM4"]
+                model: comPorts
 
                 background: Rectangle {
                     radius: 8
@@ -230,6 +260,10 @@ ApplicationWindow {
                 anchors.top: parent.top
                 anchors.topMargin: 20
                 anchors.leftMargin: 10
+
+                onCurrentIndexChanged: {
+                    selectedPort = comPorts[portSelector.currentIndex]
+                }
             }
 
             // Connect Button
@@ -255,14 +289,23 @@ ApplicationWindow {
                     anchors.fill: parent
                     onPressed: {
                         connect_button.background.color = "#CCCCCC"  // Change color when pressed
-                        console.log("Button pressed")
+                        // console.log("Button pressed")
                     }
                     onReleased: {
                         connect_button.background.color = "#E4E4E4"  // Revert color when released
-                        console.log("Button released")
+                        // console.log("Button released")
                         // Perform connect logic here
                     }
+                    onClicked: {
+                        if (selectedPort !== "") {
+                            // Call Python function to connect to the COM port
+                            connectToComPort(selectedPort)
+                        } else {
+                            console.log("No COM port selected")
+                        }
+                    }
                 }
+
             }
 
             // File label text
@@ -283,7 +326,7 @@ ApplicationWindow {
                 text: ""
                 font.pixelSize: 14
                 color: "black"
-                anchors.left: file_label.left
+                anchors.left: file_label.right
                 anchors.top: text_COM.top
                 anchors.topMargin: 35
                 anchors.leftMargin: 20
@@ -452,13 +495,72 @@ ApplicationWindow {
         }
     }
 
+    Component.onCompleted: {
+        // Load available COM ports from Python
+        loadComPorts()
+    }
+    
+    /*!
+        \qmlmethod void loadComPorts()
+    
+        Loads and populates the list of available COM ports.
+    
+        This function fetches the available COM ports using the Python backend,
+        updates the comPorts property, and sets the model for the portSelector ComboBox.
+        If debug mode is enabled, it also logs the available ports to the console.
+    */
+    function loadComPorts() {
+        // This will be linked to a Python function to fetch available ports
+        var availablePorts = serial_communication.fetchComPorts();
+        if(debug_app){
+            console.log("[DEBUG] LoadComPorts: ", availablePorts)
+        }
+        comPorts = availablePorts;
+        portSelector.model = comPorts;
+    }
+    
+    /*!
+        \qmlmethod void connectToComPort(string portName)
+    
+        Initiates a connection to the specified COM port.
+    
+        This function calls the Python backend to establish a connection
+        with the selected COM port.
+    
+        \param portName The name of the COM port to connect to.
+    */
+    function connectToComPort(portName) {
+        // This will call Python to connect to the selected COM port
+        serial_communication.connectComPort(portName);
+    }
+    
+    /*!
+        \qmltype Connections
+        \inqmlmodule QtQuick 2.15
+    
+        \brief Handles messages received from the serial communication.
+    
+        This Connections object listens for the messageReceived signal
+        from the serial_communication object and updates the consoleText
+        with the received message.
+    */
+    Connections {
+        target: serial_communication
+        onMessageReceived: {
+            consoleText.text = message
+        }
+    }
+
     FileDialog {
         id: fileDialog
         title: "Select a File"
         folder: shortcuts.home  // Start folder
         onAccepted: {
             console.log("Selected file:", fileDialog.fileUrl)
-            url_file.text = fileDialog.fileUrl
+            var fileUrl = fileDialog.fileUrl.toString()
+            var fileParts = fileUrl.split("/")
+            file_url.text = fileParts[fileParts.length - 1]
+            // fileLoader.loadFile(fileDialog.fileUrl)
         }
         onRejected: {
             console.log("File selection canceled")
