@@ -11,8 +11,24 @@ from PyQt5.QtQml import QQmlApplicationEngine
 import serial.tools.list_ports
 
 class SerialHandler(QObject):
+    """
+    A class to handle serial communication operations.
+
+    This class provides methods for managing serial port connections,
+    sending and receiving data, and listing available COM ports.
+    It inherits from QObject to integrate with Qt's signal-slot mechanism.
+
+    Attributes:
+        messageReceived (pyqtSignal): Signal emitted when a message is received.
+    """
     messageReceived = pyqtSignal(str, arguments=['message'])
+
     def __init__(self):
+        """
+        Initialize the SerialHandler object.
+
+        Sets up initial values for serial connection, read thread, and running state.
+        """
         super().__init__()
         self.serial = None
         self.read_thread = None
@@ -21,6 +37,12 @@ class SerialHandler(QObject):
 
     @pyqtSlot(result=list)
     def fetchComPorts(self):
+        """
+        Fetch and return a list of available COM ports.
+
+        Returns:
+            list: A list of strings representing available COM port names.
+        """
         ports = serial.tools.list_ports.comports()
         for port in ports:
             print(f"Port: {port.device}, Description: {port.description}, HWID: {port.hwid}")
@@ -28,6 +50,15 @@ class SerialHandler(QObject):
 
     @pyqtSlot(str)
     def connectComPort(self, port_name):
+        """
+        Connect to a specified COM port.
+
+        Args:
+            port_name (str): The name of the COM port to connect to.
+
+        Raises:
+            Exception: If connection fails, the error is printed.
+        """
         print(f"Connecting to {port_name}")
         try:
             # default baud rate is 115200, but you can change it as needed
@@ -39,8 +70,15 @@ class SerialHandler(QObject):
             self.read_thread.start()
         except Exception as e:
             print(f"Error: {e}")
+
     @pyqtSlot(str)
     def disconnectComPort(self):
+        """
+        Disconnect from the currently connected COM port.
+
+        Raises:
+            Exception: If disconnection fails, the error is printed.
+        """
         print("Disconnecting from serial port...")
         try:
             self.running = False
@@ -52,15 +90,30 @@ class SerialHandler(QObject):
 
     @pyqtSlot(str, result=str)
     def sendData(self, data):
+        """
+        Send data through the connected serial port.
+
+        Args:
+            data (str): The data to be sent.
+
+        Raises:
+            Exception: If sending data fails, the error is printed.
+        """
         print(f"Sending data: {data}")
         try:
             self.serial.write(data.encode())
             print(f"Data sent successfully")
         except Exception as e:
             print(f"Error sending data: {e}")
-    
+
     @pyqtSlot()
     def receiveData(self):
+        """
+        Continuously receive data from the serial port.
+
+        This method runs in a separate thread, reading data from the serial port
+        and emitting it via the messageReceived signal.
+        """
         print("Receiving data...")
         print ("Serial port connected: ", self.serial.is_open, " Running: ", self.running)
         while self.running and self.serial.is_open: 
@@ -70,6 +123,7 @@ class SerialHandler(QObject):
                 self.messageReceived.emit(message)
             time.sleep(0.5)  # Added delay to avoid excessive CPU usage
         print("No serial port connected")
+
 
 # Define a class to handle the file loading functionality
 class FileLoader(QObject):
