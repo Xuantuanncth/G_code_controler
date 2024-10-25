@@ -19,6 +19,7 @@ ApplicationWindow {
     property var enable_button: true
     property var disabe_button: false
     property string selectedPort: ""
+    property var gcodePath: []
 
     // Left side for information display
     Rectangle {
@@ -87,6 +88,42 @@ ApplicationWindow {
                 anchors.left: parent.left
                 anchors.topMargin: 80
                 anchors.leftMargin: 10
+
+                Canvas {
+                    id: gcodeCanvas
+                    width: parent.width
+                    height: parent.height - 100
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    contextType: "2d"
+
+                    onPaint: {
+                        var ctx = gcodeCanvas.getContext("2d")
+                        ctx.clearRect(0, 0, gcodeCanvas.width, gcodeCanvas.height)
+
+                        ctx.strokeStyle = "blue"
+                        ctx.lineWidth = 1
+                        ctx.beginPath()
+
+                        var minX = 0, minY = 0  // Set limits for negative coordinates if necessary
+                        for (var i = 0; i < gcodePath.length; i++) {
+                            var cmd = gcodePath[i][0]
+                            var x = gcodePath[i][1] != null ? Math.max(gcodePath[i][1], minX) : null
+                            var y = gcodePath[i][2] != null ? Math.max(gcodePath[i][2], minY) : null
+
+                            if (cmd === "G0" || cmd === "G1") {
+                                if (x !== null && y !== null) {
+                                    if (i === 0) {
+                                        ctx.moveTo(x, y)
+                                    } else {
+                                        ctx.lineTo(x, y)
+                                    }
+                                }
+                            }
+                        }
+                        ctx.stroke()
+                    }
+                }
+
             }
         }
 
@@ -214,7 +251,7 @@ ApplicationWindow {
 
                     onClicked: {
                         if(connected_port) {
-                            serial_communication.sendData(inputField.text)
+                            serial_communication.sendData(inputField.text+'\r\n')
                         } else {
                             notifi_connectPort.open()
                         }
@@ -662,11 +699,22 @@ ApplicationWindow {
         with the received message.
     */
     Connections {
-        target: serial_communication
-        function  onMessageReceived(message) {
+        target: serial_communication 
+        function onMessageReceived(message) {
+            console.log("Received message:", message)
             consoleText.text += "\n" + message
         }
     }
+
+    Connections {
+        target: gcode_reader
+        function onGcodeParser(gcode) {
+            console.log("Gcode loaded:", gcode)
+            // gcodePath = gcode
+            // gcodeCanvas.requestPaint()
+        }
+    }
+
 
     FileDialog {
         id: fileDialog
@@ -678,6 +726,7 @@ ApplicationWindow {
             var fileParts = fileUrl.split("/")
             file_url.text = fileParts[fileParts.length - 1]
             // fileLoader.loadFile(fileDialog.fileUrl)
+            gcode_reader.load_gcode(fileDialog.fileUrl)
         }
         onRejected: {
             console.log("File selection canceled")

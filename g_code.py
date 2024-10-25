@@ -2,6 +2,7 @@ import sys
 import os
 import threading
 import time
+import re
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQuick import QQuickView
@@ -165,6 +166,56 @@ class FileLoader(QObject):
                 return content
         except Exception as e:
             return f"Error loading file: {str(e)}"
+        
+class GCodeHandler(QObject):
+    # Signal to send G-code commands to QML
+    gCodeParsed = pyqtSignal(str, arguments=['gcode'])
+
+    def __init__(self):
+        """
+        Initialize the FileLoader object.
+
+        This constructor calls the parent class (QObject) constructor.
+        """
+        QObject.__init__(self)
+
+    @pyqtSlot(str)
+    def load_gcode(self, file_path):
+        gcode_commands = "Hello"
+        # gcode_commands = parse_gcode(file_path)
+        # Check if parse_gcode returned something
+        if gcode_commands:
+            print("G-code commands found: ", gcode_commands)
+            self.gCodeParsed.emit(gcode_commands)
+        else:
+            print("No G-code commands found")
+
+def parse_gcode(file_url):
+
+    gcode_commands = []
+
+    file_path = file_url.replace('file:///', '')
+
+    if os.name == 'nt':  # Windows OS
+        file_path = file_path.replace('/', '\\')
+    print(f"Loading G-code from {file_path}")
+    try:
+        with open(file_path, 'r') as file:
+            for line in file:
+                line = line.split(';')[0].strip()
+                if not line:
+                    continue
+
+                match = re.match(r'(G0|G1)\s+X([-+]?[0-9]*\.?[0-9]+)?\s+Y([-+]?[0-9]*\.?[0-9]+)?', line)
+                if match:
+                    cmd = match.group(1)
+                    x = float(match.group(2)) if match.group(2) else None
+                    y = float(match.group(3)) if match.group(3) else None
+                    gcode_commands.append((cmd, x, y))
+        print (f'End of G-code parsing')
+        return gcode_commands
+    except Exception as e:
+        return f"Error loading file: {str(e)}"
 
 # Initialize the Qt Application
 app = QGuiApplication(sys.argv)
@@ -172,13 +223,16 @@ app = QGuiApplication(sys.argv)
 # Set up the QML engine and load the main QML file
 engine = QQmlApplicationEngine()
 file_loader = FileLoader()
-
+gcode_handler = GCodeHandler()
 serial_handler = SerialHandler()
 
 engine.rootContext().setContextProperty("serial_communication", serial_handler)
 
 # Expose the FileLoader class to QML
 engine.rootContext().setContextProperty("fileLoader", file_loader)
+
+# Expose the gcode class to QML
+engine.rootContext().setContextProperty('gcode_reader', gcode_handler)
 
 # Load the QML file
 engine.load("display.qml")
