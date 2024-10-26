@@ -83,7 +83,7 @@ ApplicationWindow {
                 width: 800
                 height: 450
                 radius: 8
-                color: "white"
+                // color: "white"
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.topMargin: 80
@@ -91,25 +91,40 @@ ApplicationWindow {
 
                 Canvas {
                     id: gcodeCanvas
-                    width: parent.width
-                    height: parent.height - 100
+                    width: parent.width - 20
+                    height: parent.height - 20
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.topMargin: 10
+                    anchors.leftMargin: 10
+
+                    // Drawing G-code commands
                     anchors.horizontalCenter: parent.horizontalCenter
                     contextType: "2d"
 
                     onPaint: {
-                        var ctx = gcodeCanvas.getContext("2d")
+                        var ctx = getContext("2d")
+                        var scaleFactor = 2
                         ctx.clearRect(0, 0, gcodeCanvas.width, gcodeCanvas.height)
-
+                        // ctx.fillStyle = "lightblue"
                         ctx.strokeStyle = "blue"
                         ctx.lineWidth = 1
                         ctx.beginPath()
 
+                        ctx.translate(0, gcodeCanvas.height);
+                        ctx.scale(1, -1); //Put the root origin at the center of the canvas
+
+                        // Debugging: Log length and first elements of gcodePath
+                        console.log("gcodePath length: " + gcodePath.length)
+                        // console.log("GcodePath: ",gcodePath)
+                        if (gcodePath.length > 0) {
+                            console.log("First command: " + gcodePath[0][0] + " X: " + gcodePath[0][1] + " Y: " + gcodePath[0][2])
+                        }
                         var minX = 0, minY = 0  // Set limits for negative coordinates if necessary
                         for (var i = 0; i < gcodePath.length; i++) {
                             var cmd = gcodePath[i][0]
-                            var x = gcodePath[i][1] != null ? Math.max(gcodePath[i][1], minX) : null
-                            var y = gcodePath[i][2] != null ? Math.max(gcodePath[i][2], minY) : null
-
+                            var x = gcodePath[i][1] != null ? Math.max(gcodePath[i][1], minX)*scaleFactor : null
+                            var y = gcodePath[i][2] != null ? Math.max(gcodePath[i][2], minY)*scaleFactor : null
                             if (cmd === "G0" || cmd === "G1") {
                                 if (x !== null && y !== null) {
                                     if (i === 0) {
@@ -123,7 +138,6 @@ ApplicationWindow {
                         ctx.stroke()
                     }
                 }
-
             }
         }
 
@@ -466,6 +480,7 @@ ApplicationWindow {
                             buttonStart.text = "Start"
                             buttonStart.background.color = "white"
                             enabledOrDisabledButtons(enable_button)
+                            console.log(gcode_reader.gcode_flags())
                         }
                     }
                 }
@@ -489,6 +504,24 @@ ApplicationWindow {
 
                 text: "Root"
                 font.pixelSize: 14
+
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: {
+                        buttonGotoRoot.background.color = "#CCCCCC"  // Change color when pressed
+                        // console.log("Button pressed")
+                    }
+                    onReleased: {
+                        buttonGotoRoot.background.color = "white"  // Revert color when released
+                        // console.log("Button released")
+                        // Perform goto root logic here
+                    }
+
+                    onClicked: {
+                        // Perform goto root button click action here
+                        // notification.show_notification()
+                    }
+                }
             }
 
             Text {
@@ -708,10 +741,18 @@ ApplicationWindow {
 
     Connections {
         target: gcode_reader
-        function onGcodeParser(gcode) {
-            console.log("Gcode loaded:", gcode)
-            // gcodePath = gcode
-            // gcodeCanvas.requestPaint()
+        function onDataParser(gcode_data) {
+            console.log("Gcode data received done and Gcode length:", gcode_data.length)
+            gcodePath = gcode_data
+            gcodeCanvas.requestPaint()
+        }
+    }
+
+    Connections {
+        target: notification
+        function onNotification(message) {
+            console.log("Notification:", message)
+            notifi_connectPort.open()
         }
     }
 
@@ -727,6 +768,7 @@ ApplicationWindow {
             file_url.text = fileParts[fileParts.length - 1]
             // fileLoader.loadFile(fileDialog.fileUrl)
             gcode_reader.load_gcode(fileDialog.fileUrl)
+
         }
         onRejected: {
             console.log("File selection canceled")

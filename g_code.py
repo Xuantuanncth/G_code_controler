@@ -11,6 +11,7 @@ from PyQt5.QtQml import QQmlApplicationEngine
 
 import serial.tools.list_ports
 
+debug_app = False
 class SerialHandler(QObject):
     """
     A class to handle serial communication operations.
@@ -167,28 +168,69 @@ class FileLoader(QObject):
         except Exception as e:
             return f"Error loading file: {str(e)}"
         
-class GCodeHandler(QObject):
-    # Signal to send G-code commands to QML
-    gCodeParsed = pyqtSignal(str, arguments=['gcode'])
+# class GCodeHandler(QObject):
+#     # Signal to send G-code commands to QML
+#     data_gcode = pyqtSignal(str, arguments=['data'])
 
+#     def __init__(self):
+#         """
+#         Initialize the FileLoader object.
+
+#         This constructor calls the parent class (QObject) constructor.
+#         """
+#         QObject.__init__(self)
+
+#     @pyqtSlot(str, result=list)
+#     def load_gcode(self, file_path):
+#         # gcode_commands = "Hello"
+#         gcode_commands = parse_gcode(file_path)
+#         # Check if parse_gcode returned something
+#         if gcode_commands:
+#             # print("G-code commands found: ", gcode_commands)
+#             # self.data_gcode.emit(gcode_commands)
+#             return gcode_commands
+#         else:
+#             print("No G-code commands found")
+#             return []
+
+#     @pyqtSlot(result=str)
+#     def gcode_flags(self):
+#         print("G-code flags requested")
+#         self.data_gcode.emit("123")
+#         return "OK"
+
+class Parser_Gcode(QObject):
+
+    dataParser = pyqtSignal(list, arguments=['gcode_data'])
     def __init__(self):
-        """
-        Initialize the FileLoader object.
-
-        This constructor calls the parent class (QObject) constructor.
-        """
         QObject.__init__(self)
 
     @pyqtSlot(str)
     def load_gcode(self, file_path):
-        gcode_commands = "Hello"
-        # gcode_commands = parse_gcode(file_path)
-        # Check if parse_gcode returned something
-        if gcode_commands:
-            print("G-code commands found: ", gcode_commands)
-            self.gCodeParsed.emit(gcode_commands)
+        gcode_data = []
+        gcode_data = parse_gcode(file_path)
+        if gcode_data:
+            # print("G-code data: ", (gcode_data))
+            self.dataParser.emit(gcode_data)
         else:
-            print("No G-code commands found")
+            self.dataParser.emit([])
+
+class Test_notification(QObject):
+
+    notification = pyqtSignal(str, arguments=['message'])
+    def __init__(self):
+        QObject.__init__(self)
+
+    @pyqtSlot()
+    def show_notification(self):
+        print(f"Notification")
+        counter_for_notification()
+        self.notification.emit("Hello from Python!")
+        # Implement notification display logic here
+
+def counter_for_notification():
+    for i in range(10):
+        time.sleep(1)
 
 def parse_gcode(file_url):
 
@@ -202,18 +244,22 @@ def parse_gcode(file_url):
     try:
         with open(file_path, 'r') as file:
             for line in file:
-                line = line.split(';')[0].strip()
+                line = line.split(';')[0].strip()  # Strip out comments
                 if not line:
                     continue
 
+                # Match G1 or G0 commands with X, Y coordinates
                 match = re.match(r'(G0|G1)\s+X([-+]?[0-9]*\.?[0-9]+)?\s+Y([-+]?[0-9]*\.?[0-9]+)?', line)
                 if match:
                     cmd = match.group(1)
                     x = float(match.group(2)) if match.group(2) else None
                     y = float(match.group(3)) if match.group(3) else None
-                    gcode_commands.append((cmd, x, y))
-        print (f'End of G-code parsing')
-        return gcode_commands
+                    # Add debug output to inspect the coordinates
+                    # print(f"Command: {cmd}, X: {x}, Y: {y}")
+                    gcode_commands.append([cmd, x, y])
+
+            print("G-code commands loaded successfully")
+            return gcode_commands
     except Exception as e:
         return f"Error loading file: {str(e)}"
 
@@ -223,8 +269,9 @@ app = QGuiApplication(sys.argv)
 # Set up the QML engine and load the main QML file
 engine = QQmlApplicationEngine()
 file_loader = FileLoader()
-gcode_handler = GCodeHandler()
+gcode_handler = Parser_Gcode()
 serial_handler = SerialHandler()
+notification_handler = Test_notification()
 
 engine.rootContext().setContextProperty("serial_communication", serial_handler)
 
@@ -233,6 +280,9 @@ engine.rootContext().setContextProperty("fileLoader", file_loader)
 
 # Expose the gcode class to QML
 engine.rootContext().setContextProperty('gcode_reader', gcode_handler)
+
+#test notification
+engine.rootContext().setContextProperty('notification', notification_handler)
 
 # Load the QML file
 engine.load("display.qml")
