@@ -20,6 +20,7 @@ ApplicationWindow {
     property var disabe_button: false
     property string selectedPort: ""
     property var gcodePath: []
+    property var scaleFactor : 2
 
     // Left side for information display
     Rectangle {
@@ -91,7 +92,7 @@ ApplicationWindow {
 
                 Canvas {
                     id: gcodeCanvas
-                    width: parent.width - 20
+                    width: parent.width - 300
                     height: parent.height - 20
                     anchors.top: parent.top
                     anchors.left: parent.left
@@ -99,12 +100,12 @@ ApplicationWindow {
                     anchors.leftMargin: 10
 
                     // Drawing G-code commands
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    // anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.centerIn: parent
                     contextType: "2d"
 
                     onPaint: {
                         var ctx = getContext("2d")
-                        var scaleFactor = 2
                         ctx.clearRect(0, 0, gcodeCanvas.width, gcodeCanvas.height)
                         // ctx.fillStyle = "lightblue"
                         ctx.strokeStyle = "blue"
@@ -138,6 +139,80 @@ ApplicationWindow {
                         ctx.stroke()
                     }
                 }
+
+                Button {
+                    id: btn_scaler_up
+                    width: 50
+                    height: 40
+
+                    background: Rectangle {
+                        color: "#E1E1E1"
+                        radius: 8
+                    }
+
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.topMargin: 40
+                    anchors.rightMargin: 40
+
+                    Image {
+                            source: "./image/arrow_up.png"
+                            anchors.fill: parent
+                            fillMode: Image.PreserveAspectFit 
+                        }
+                    MouseArea{
+                        onPressed:{
+                            btn_scaler_up.scale = 1.2
+                        }
+
+                        onClicked: {
+                            
+                            // scaleFactor /= 1.2
+                            // gcodeCanvas.requestPaint()
+                        }
+
+                        onReleased: {
+                            btn_scaler_up.scale = 1
+                        }
+                    }
+                }
+                Button {
+                    id: btn_scaler_down
+                    width: 50
+                    height: 40
+
+                    background: Rectangle {
+                        color: "#E1E1E1"
+                        radius: 8
+                    }
+
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.topMargin: 90
+                    anchors.rightMargin: 40
+
+                    Image {
+                        source: "./image/arrow_down.png"
+                        anchors.fill: parent
+                        fillMode: Image.PreserveAspectFit 
+                    }
+                    MouseArea{
+                        onPressed:{
+                            btn_scaler_down.scale = 1.2
+                        }
+
+                        onClicked: {
+                            
+                            // scaleFactor /= 1.2
+                            // gcodeCanvas.requestPaint()
+                        }
+
+                        onReleased: {
+                            btn_scaler_down.scale = 1
+                        }
+                    }
+                }
+    
             }
         }
 
@@ -403,6 +478,7 @@ ApplicationWindow {
 
             // Open Button
             Button {
+                id: button_open_file
                 width: 90
                 height: 40
 
@@ -418,8 +494,20 @@ ApplicationWindow {
                 text: "Open"
                 font.bold: true
                 font.pixelSize: 12
+                
+                MouseArea {
+                    id: openFileMouseArea
+                    anchors.fill: parent
+                    onPressed: {
+                        // console.log("Open button pressed")
+                        button_open_file.background.color = "#CCCCCC"
+                    }
+                    onReleased: {
+                        button_open_file.background.color = "#E4E4E4"
+                    }
 
-                onClicked: fileDialog.open()
+                    onClicked: fileDialog.open()
+                }
             }
         }
 
@@ -519,7 +607,12 @@ ApplicationWindow {
 
                     onClicked: {
                         // Perform goto root button click action here
-                        // notification.show_notification()
+                        if ((connected_port == true) && (is_running == fase)) {
+                            //True case
+                            console.log("Get device to root")
+                        } else {
+                            notifi_connectPort.open()
+                        }
                     }
                 }
             }
@@ -569,6 +662,28 @@ ApplicationWindow {
 
                 text: "Set Speed"
                 font.pixelSize: 14
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: {
+                        button_setspeed.background.color = "#CCCCCC"  // Change color when pressed
+                        // console.log("Button pressed")
+                    }
+                    onReleased: {
+                        button_setspeed.background.color = "white"  // Revert color when released
+                        // console.log("Button released")
+                        // Perform goto root logic here
+                    }
+
+                    onClicked: {
+                        // Perform goto root button click action here
+                        if ((connected_port == true) && (is_running == fase)) {
+                            //True case
+                            console.log("Set speed to device")
+                        } else {
+                            notifi_connectPort.open()
+                        }
+                    }
+                }
             }
         }
 

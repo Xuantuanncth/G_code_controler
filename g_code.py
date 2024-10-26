@@ -126,6 +126,10 @@ class SerialHandler(QObject):
             time.sleep(0.5)  # Added delay to avoid excessive CPU usage
         print("No serial port connected")
 
+    @pyqtSlot(str)
+    def sendCommand(self, command):
+        print(f"Sending command: {command}")
+        
 
 # Define a class to handle the file loading functionality
 class FileLoader(QObject):
