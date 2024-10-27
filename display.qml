@@ -21,6 +21,11 @@ ApplicationWindow {
     property string selectedPort: ""
     property var gcodePath: []
     property var scaleFactor : 2
+    property var v_TURN_LEFT: 0
+    property var v_TURN_RIGHT: 1
+    property var v_TURN_UP: 2
+    property var v_TURN_DOWN: 3
+    property var v_TURN_ZERO: 4
 
     // Left side for information display
     Rectangle {
@@ -733,6 +738,32 @@ ApplicationWindow {
                                     parent.scale = 1  // Revert the color when mouse leaves
                                 }
                             }
+                            onClicked: {
+                                if (index === 1) {
+                                    // Move up
+                                    console.log("Move up")
+                                    sendCommandToDevice(v_TURN_UP)
+                                } else if (index === 3) {
+                                     // Move left
+                                    console.log("Move left")
+                                    sendCommandToDevice(v_TURN_LEFT)
+                                } else if (index === 4) {
+                                    // Move to zero
+                                    console.log("Move to zero")
+                                    sendCommandToDevice(v_TURN_ZERO)
+                                } else if (index === 5) {
+                                     // Move right
+                                    console.log("Move right")
+                                    sendCommandToDevice(v_TURN_RIGHT)
+                                } else if (index === 7) {
+                                     // Move down
+                                    console.log("Move down")
+                                    sendCommandToDevice(v_TURN_DOWN)
+                                } else {
+                                    // Do nothing when clicked on the center button
+                                    console.log("Clicked on center button")
+                                }
+                            }
                         }
                     }
                 }
@@ -827,6 +858,14 @@ ApplicationWindow {
     
     function disconnectToComPort(portName){
         serial_communication.disconnectComPort(portName);
+    }
+
+    function sendCommandToDevice(command){
+        serial_communication.sendCommand(command);
+    }
+
+    function startRunning(){
+        serial_communication.startRunning();
     }
 
     function enabledOrDisabledButtons(enable){
