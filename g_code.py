@@ -115,10 +115,10 @@ class SerialHandler(QObject):
         """
         print(f"Sending data: {data}")
         try:
-            if not data.endswith("\r\n"):
-                data += "\r\n"  # Add newline characters if not already present
+            if not data.endswith("\n"):
+                data += "\n"  # Add newline characters if not already present
             self.serial.write(data.encode())
-            print(f"Data sent successfully")
+            # print(f"Data sent successfully")
         except Exception as e:
             print(f"Error sending data: {e}")
 
@@ -137,7 +137,7 @@ class SerialHandler(QObject):
                 message = self.serial.readline().decode('utf-8').strip()
                 print(f"Received data: {message}")
                 self.messageReceived.emit(message)
-            time.sleep(0.5)  # Added delay to avoid excessive CPU usage
+            time.sleep(0.1)  # Added delay to avoid excessive CPU usage
         print("No serial port connected")
 
     @pyqtSlot(str)
@@ -145,6 +145,7 @@ class SerialHandler(QObject):
         v_direction = int(command)
         f_command = "G21G91G1"
         b_command = "F100"
+        e_command = "G90 G21"
         dir_cmd = ""
         typeOfCMD = 0
 
@@ -170,6 +171,7 @@ class SerialHandler(QObject):
             _command = f_command + dir_cmd + b_command
             print(f"_command: {_command}")
             self.sendData(_command)
+            self.sendData(e_command)    
         elif typeOfCMD == 1:
             self.sendData(st1_command)
         else:
@@ -191,10 +193,11 @@ class SerialHandler(QObject):
         try:
             with open(v_Gcode_file, 'r') as file:
                 for line in file:
-                    line = line.strip()
-                    if line:
-                        self.sendData(line)
-                        time.sleep(0.5)  # Added delay to avoid excessive CPU usage
+                    gcode_line  = line.strip()
+                    if gcode_line :
+                        gcode_no_spaces = gcode_line.replace(" ", "")
+                        self.sendData(gcode_no_spaces)
+                        time.sleep(0.1)  # Added delay to avoid excessive CPU usage
             print("Done loading G-code file")
             self.runningFlag.emit("done")
         except FileNotFoundError as e:

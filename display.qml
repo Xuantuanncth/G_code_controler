@@ -145,6 +145,45 @@ ApplicationWindow {
                         ctx.stroke()
                     }
                 }
+                Canvas {
+                    id: canvasGrid
+                    property int gridSize: 20
+                    width: parent.width - 300
+                    height: parent.height - 20
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.topMargin: 10
+                    anchors.leftMargin: 10
+
+                    onPaint: {
+                        var ctx = getContext("2d");
+                        ctx.clearRect(0, 0, width, height);  // Clear canvas for each redraw
+
+                        ctx.strokeStyle = "#cccccc";  // Grid line color
+                        ctx.lineWidth = 1;
+
+                        // Draw vertical grid lines
+                        for (var x = 0; x < width; x += gridSize) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, 0);
+                            ctx.lineTo(x, height);
+                            ctx.stroke();
+                        }
+
+                        // Draw horizontal grid lines
+                        for (var y = 0; y < height; y += gridSize) {
+                            ctx.beginPath();
+                            ctx.moveTo(0, y);
+                            ctx.lineTo(width, y);
+                            ctx.stroke();
+                        }
+                    }
+
+                    // Trigger repaint whenever the canvas size or gridSize changes
+                    onWidthChanged: canvas.requestPaint()
+                    onHeightChanged: canvas.requestPaint()
+                    onGridSizeChanged: canvas.requestPaint()
+                }
 
                 Button {
                     id: btn_scaler_up
@@ -255,7 +294,7 @@ ApplicationWindow {
                 radius: 8
                 anchors.top: parent.top
                 anchors.left: parent.left
-                anchors.topMargin: 35
+                anchors.topMargin: 10
                 anchors.leftMargin: 10
 
                 ScrollView {
@@ -273,9 +312,8 @@ ApplicationWindow {
                         wrapMode: TextArea.Wrap
                         readOnly: true
 
-                        onHeightChanged: {  // Triggered when the TextArea's height changes
-                            scrollView.flickableItem.contentY = scrollView.flickableItem.contentHeight - scrollView.flickableItem.height;
-                        }
+                        // onTextChanged: scrollView.contentY = scrollView.contentHeight - scrollView.height
+
                     }
                 }
             }
@@ -921,6 +959,7 @@ ApplicationWindow {
             console.log("Gcode data received done and Gcode length:", gcode_data.length)
             gcodePath = gcode_data
             gcodeCanvas.requestPaint()
+            canvasGrid.requestPaint()
         }
     }
 
