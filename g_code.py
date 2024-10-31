@@ -11,7 +11,17 @@ from PyQt5.QtQml import QQmlApplicationEngine
 
 import serial.tools.list_ports
 
+v_TURN_LEFT  = 1001
+v_TURN_RIGHT = 1002
+v_TURN_UP    = 1003
+v_TURN_DOWN  = 1004
+v_TURN_ZERO  = 1005
+v_SET_ZERO   = 1006
+
+v_Gcode_file = ""
+
 debug_app = False
+
 class SerialHandler(QObject):
     """
     A class to handle serial communication operations.
@@ -24,6 +34,7 @@ class SerialHandler(QObject):
         messageReceived (pyqtSignal): Signal emitted when a message is received.
     """
     messageReceived = pyqtSignal(str, arguments=['message'])
+    runningFlag = pyqtSignal(str, arguments=['flag'] )
 
     def __init__(self):
         """
@@ -34,6 +45,7 @@ class SerialHandler(QObject):
         super().__init__()
         self.serial = None
         self.read_thread = None
+        self.send_thread = None
         self.running = False
         QObject.__init__(self)
 
@@ -103,6 +115,8 @@ class SerialHandler(QObject):
         """
         print(f"Sending data: {data}")
         try:
+            if not data.endswith("\r\n"):
+                data += "\r\n"  # Add newline characters if not already present
             self.serial.write(data.encode())
             print(f"Data sent successfully")
         except Exception as e:
@@ -128,9 +142,66 @@ class SerialHandler(QObject):
 
     @pyqtSlot(str)
     def sendCommand(self, command):
-        print(f"Sending command: {command}")
-        
+        v_direction = int(command)
+        f_command = "G21G91G1"
+        b_command = "F100"
+        dir_cmd = ""
+        typeOfCMD = 0
 
+        if v_direction == v_TURN_LEFT:
+            print("Turning left")
+            dir_cmd = "X2"
+        elif v_direction == v_TURN_RIGHT:
+            dir_cmd = "X-2"
+        elif v_direction == v_TURN_UP:
+            dir_cmd = "Y2"
+        elif v_direction == v_TURN_DOWN:
+            dir_cmd = "Y-2"
+        elif v_direction == v_SET_ZERO:
+            typeOfCMD = 1
+            st1_command = "G10 P0 L20 X0 Y0 Z0"
+        elif v_direction == v_TURN_ZERO:
+            typeOfCMD = 2
+            st1_command = "G21G90 G0Z5"
+            st2_command = "G90 G0 X0 Y0"
+            st3_command = "G90 G0 Z0"
+
+        if typeOfCMD == 0:
+            _command = f_command + dir_cmd + b_command
+            print(f"_command: {_command}")
+            self.sendData(_command)
+        elif typeOfCMD == 1:
+            self.sendData(st1_command)
+        else:
+            self.sendData(st1_command)
+            self.sendData(st2_command)
+            self.sendData(st3_command)
+        
+    @pyqtSlot()
+    def startSendGcode(self):
+        try:
+            self.send_thread = threading.Thread(target=self.sendGcodeFile)
+            self.send_thread.daemon = True
+            self.send_thread.start()
+            print("G-code file loading started")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+    @pyqtSlot()
+    def sendGcodeFile(self):
+        try:
+            with open(v_Gcode_file, 'r') as file:
+                for line in file:
+                    line = line.strip()
+                    if line:
+                        self.sendData(line)
+                        time.sleep(0.5)  # Added delay to avoid excessive CPU usage
+            print("Done loading G-code file")
+            self.runningFlag.emit("done")
+        except FileNotFoundError as e:
+            print(f"Error: File not found: {v_Gcode_file}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+        
 # Define a class to handle the file loading functionality
 class FileLoader(QObject):
     """
@@ -171,37 +242,6 @@ class FileLoader(QObject):
                 return content
         except Exception as e:
             return f"Error loading file: {str(e)}"
-        
-# class GCodeHandler(QObject):
-#     # Signal to send G-code commands to QML
-#     data_gcode = pyqtSignal(str, arguments=['data'])
-
-#     def __init__(self):
-#         """
-#         Initialize the FileLoader object.
-
-#         This constructor calls the parent class (QObject) constructor.
-#         """
-#         QObject.__init__(self)
-
-#     @pyqtSlot(str, result=list)
-#     def load_gcode(self, file_path):
-#         # gcode_commands = "Hello"
-#         gcode_commands = parse_gcode(file_path)
-#         # Check if parse_gcode returned something
-#         if gcode_commands:
-#             # print("G-code commands found: ", gcode_commands)
-#             # self.data_gcode.emit(gcode_commands)
-#             return gcode_commands
-#         else:
-#             print("No G-code commands found")
-#             return []
-
-#     @pyqtSlot(result=str)
-#     def gcode_flags(self):
-#         print("G-code flags requested")
-#         self.data_gcode.emit("123")
-#         return "OK"
 
 class Parser_Gcode(QObject):
 
@@ -237,13 +277,14 @@ def counter_for_notification():
         time.sleep(1)
 
 def parse_gcode(file_url):
-
+    global v_Gcode_file
     gcode_commands = []
 
     file_path = file_url.replace('file:///', '')
 
     if os.name == 'nt':  # Windows OS
         file_path = file_path.replace('/', '\\')
+    v_Gcode_file = file_path
     print(f"Loading G-code from {file_path}")
     try:
         with open(file_path, 'r') as file:
@@ -267,32 +308,33 @@ def parse_gcode(file_url):
     except Exception as e:
         return f"Error loading file: {str(e)}"
 
-# Initialize the Qt Application
-app = QGuiApplication(sys.argv)
+if __name__ == "__main__":
+    # Initialize the Qt Application
+    app = QGuiApplication(sys.argv)
 
-# Set up the QML engine and load the main QML file
-engine = QQmlApplicationEngine()
-file_loader = FileLoader()
-gcode_handler = Parser_Gcode()
-serial_handler = SerialHandler()
-notification_handler = Test_notification()
+    # Set up the QML engine and load the main QML file
+    engine = QQmlApplicationEngine()
+    file_loader = FileLoader()
+    gcode_handler = Parser_Gcode()
+    serial_handler = SerialHandler()
+    notification_handler = Test_notification()
 
-engine.rootContext().setContextProperty("serial_communication", serial_handler)
+    engine.rootContext().setContextProperty("serial_communication", serial_handler)
 
-# Expose the FileLoader class to QML
-engine.rootContext().setContextProperty("fileLoader", file_loader)
+    # Expose the FileLoader class to QML
+    engine.rootContext().setContextProperty("fileLoader", file_loader)
 
-# Expose the gcode class to QML
-engine.rootContext().setContextProperty('gcode_reader', gcode_handler)
+    # Expose the gcode class to QML
+    engine.rootContext().setContextProperty('gcode_reader', gcode_handler)
 
-#test notification
-engine.rootContext().setContextProperty('notification', notification_handler)
+    #test notification
+    engine.rootContext().setContextProperty('notification', notification_handler)
 
-# Load the QML file
-engine.load("display.qml")
+    # Load the QML file
+    engine.load("display.qml")
 
-# Exit the application when the QML window is closed
-if not engine.rootObjects():
-    sys.exit(-1)
+    # Exit the application when the QML window is closed
+    if not engine.rootObjects():
+        sys.exit(-1)
 
-sys.exit(app.exec_())
+    sys.exit(app.exec_())

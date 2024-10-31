@@ -21,11 +21,12 @@ ApplicationWindow {
     property string selectedPort: ""
     property var gcodePath: []
     property var scaleFactor : 2
-    property var v_TURN_LEFT: 0
-    property var v_TURN_RIGHT: 1
-    property var v_TURN_UP: 2
-    property var v_TURN_DOWN: 3
-    property var v_TURN_ZERO: 4
+    property var v_TURN_LEFT: 1001
+    property var v_TURN_RIGHT: 1002
+    property var v_TURN_UP: 1003
+    property var v_TURN_DOWN: 1004
+    property var v_TURN_ZERO: 1005
+    property var v_SET_ZERO: 1006
 
     // Left side for information display
     Rectangle {
@@ -257,15 +258,25 @@ ApplicationWindow {
                 anchors.topMargin: 35
                 anchors.leftMargin: 10
 
-                Text {
-                    id: consoleText
-                    text: ""
-                    font.pixelSize: 14
-                    color: "black"
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.topMargin: 10
-                    anchors.leftMargin: 10
+                ScrollView {
+                    id: scrollView
+                    width: parent.width
+                    height: parent.height
+                    contentWidth: consoleText.width
+                    contentHeight: consoleText.height
+
+                    TextArea {
+                        id: consoleText
+                        text: ""
+                        font.pixelSize: 14
+                        color: "black"
+                        wrapMode: TextArea.Wrap
+                        readOnly: true
+
+                        onHeightChanged: {  // Triggered when the TextArea's height changes
+                            scrollView.flickableItem.contentY = scrollView.flickableItem.contentHeight - scrollView.flickableItem.height;
+                        }
+                    }
                 }
             }
 
@@ -565,6 +576,7 @@ ApplicationWindow {
                             buttonStart.text = "Stop"
                             buttonStart.background.color = "red"
                             enabledOrDisabledButtons(disabe_button)
+                            serial_communication.startSendGcode()
                         } else {
                             if( connected_port == false) {
                                 notifi_connectPort.open()
@@ -595,7 +607,7 @@ ApplicationWindow {
                 anchors.leftMargin: 40
                 anchors.topMargin: 10
 
-                text: "Root"
+                text: "Turn Zero"
                 font.pixelSize: 14
 
                 MouseArea {
@@ -615,6 +627,7 @@ ApplicationWindow {
                         if ((connected_port == true) && (is_running == fase)) {
                             //True case
                             console.log("Get device to root")
+                            sendCommandToDevice(v_TURN_ZERO)
                         } else {
                             notifi_connectPort.open()
                         }
@@ -741,23 +754,23 @@ ApplicationWindow {
                             onClicked: {
                                 if (index === 1) {
                                     // Move up
-                                    console.log("Move up")
+                                    consoleText.text += "\n" + "Move up"
                                     sendCommandToDevice(v_TURN_UP)
                                 } else if (index === 3) {
                                      // Move left
-                                    console.log("Move left")
+                                    consoleText.text += "\n" + "Move left"
                                     sendCommandToDevice(v_TURN_LEFT)
                                 } else if (index === 4) {
                                     // Move to zero
-                                    console.log("Move to zero")
-                                    sendCommandToDevice(v_TURN_ZERO)
+                                    consoleText.text += "\n" + "Move to zero"
+                                    sendCommandToDevice(v_SET_ZERO)
                                 } else if (index === 5) {
                                      // Move right
-                                    console.log("Move right")
+                                    consoleText.text += "\n" + "Move right"
                                     sendCommandToDevice(v_TURN_RIGHT)
                                 } else if (index === 7) {
                                      // Move down
-                                    console.log("Move down")
+                                    consoleText.text += "\n" + "Move down"
                                     sendCommandToDevice(v_TURN_DOWN)
                                 } else {
                                     // Do nothing when clicked on the center button
@@ -890,6 +903,15 @@ ApplicationWindow {
         function onMessageReceived(message) {
             console.log("Received message:", message)
             consoleText.text += "\n" + message
+        }
+
+        function onRunningFlag(flag){
+            console.log("Running flag:", flag)
+            is_running = false
+            buttonStart.text = "Start"
+            buttonStart.background.color = "white"
+            enabledOrDisabledButtons(enable_button)
+
         }
     }
 
