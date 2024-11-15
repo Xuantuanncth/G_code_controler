@@ -1,4 +1,5 @@
 # G_code_controller
+# Reading and Drawing G_Code file with python and qml
 
 This application reads G-code files and controls a CNC machine via serial communication.  It provides real-time progress updates, error reporting, and displays both the G-code and console output.  It also allows for control over parameters like feed rate and spindle speed.
 
