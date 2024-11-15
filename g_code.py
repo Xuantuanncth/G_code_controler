@@ -297,7 +297,8 @@ def parse_gcode(file_url):
                     continue
 
                 # Match G1 or G0 commands with X, Y coordinates
-                match = re.match(r'(G0|G1)\s+X([-+]?[0-9]*\.?[0-9]+)?\s+Y([-+]?[0-9]*\.?[0-9]+)?', line)
+                # match = re.search(r'(G\d+|M\d+)?\s*(X[-+]?[0-9]*\.?[0-9]+)?\s*(Y[-+]?[0-9]*\.?[0-9]+)?', line)
+                match = re.match(r'(G0|G1|G2|G3)\s+X([-+]?[0-9]*\.?[0-9]+)?\s+Y([-+]?[0-9]*\.?[0-9]+)?', line)
                 if match:
                     cmd = match.group(1)
                     x = float(match.group(2)) if match.group(2) else None
@@ -307,6 +308,7 @@ def parse_gcode(file_url):
                     gcode_commands.append([cmd, x, y])
 
             print("G-code commands loaded successfully")
+            # print("gcode_commands: ", gcode_commands)
             return gcode_commands
     except Exception as e:
         return f"Error loading file: {str(e)}"

@@ -114,6 +114,9 @@ ApplicationWindow {
                         var ctx = getContext("2d")
                         ctx.clearRect(0, 0, gcodeCanvas.width, gcodeCanvas.height)
                         // ctx.fillStyle = "lightblue"
+                        
+                        ctx.setTransform(1, 0, 0, 1, 0, 0)
+
                         ctx.strokeStyle = "blue"
                         ctx.lineWidth = 1
                         ctx.beginPath()
@@ -132,7 +135,7 @@ ApplicationWindow {
                             var cmd = gcodePath[i][0]
                             var x = gcodePath[i][1] != null ? Math.max(gcodePath[i][1], minX)*scaleFactor : null
                             var y = gcodePath[i][2] != null ? Math.max(gcodePath[i][2], minY)*scaleFactor : null
-                            if (cmd === "G0" || cmd === "G1") {
+                            if (cmd === "G0" || cmd === "G1" || cmd === "G2" || cmd === "G3") {
                                 if (x !== null && y !== null) {
                                     if (i === 0) {
                                         ctx.moveTo(x, y)
@@ -154,10 +157,11 @@ ApplicationWindow {
                     anchors.left: parent.left
                     anchors.topMargin: 10
                     anchors.leftMargin: 10
+                    anchors.centerIn: parent
 
                     onPaint: {
                         var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);  // Clear canvas for each redraw
+                        ctx.clearRect(0, 0, canvasGrid.width, canvasGrid.height);  // Clear canvas for each redraw
 
                         ctx.strokeStyle = "#cccccc";  // Grid line color
                         ctx.lineWidth = 1;
@@ -180,8 +184,8 @@ ApplicationWindow {
                     }
 
                     // Trigger repaint whenever the canvas size or gridSize changes
-                    onWidthChanged: canvas.requestPaint()
-                    onHeightChanged: canvas.requestPaint()
+                    // onWidthChanged: canvas.requestPaint()
+                    // onHeightChanged: canvas.requestPaint()
                     onGridSizeChanged: canvas.requestPaint()
                 }
 
