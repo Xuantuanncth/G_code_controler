@@ -81,6 +81,10 @@ ApplicationWindow {
                         parent.scale = 1
                         parent.color = "black"
                     }
+
+                    onClicked: {
+                        about_information.open();
+                    }
                 }
             }
 
@@ -825,6 +829,50 @@ ApplicationWindow {
             }
         }
 
+    }
+
+
+    Popup {
+        id: about_information
+        width: 300
+        height: 200
+        x: parent.width / 2 - width / 2
+        y: parent.height / 2 - height / 2
+
+        Rectangle {
+            width: parent.width
+            height: parent.height
+            Rectangle {
+                width: 25
+                height: 25
+                color: "red"
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: 0
+                anchors.rightMargin: 0
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "X"
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 16
+                    color: "white"
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: {
+                        about_information.close()
+                    }
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: " This is the application of ABC"
+                font.pixelSize: 16
+                color: "black"
+            }
+        }
     }
 
     Popup {
